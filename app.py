@@ -342,18 +342,7 @@ def student_register():
                     cur=c.execute("INSERT INTO students(name,email,phone,student_code,password_hash) VALUES(?,?,?,?,?)",
                                   (name,email,phone,code,generate_password_hash(pw))); sid=cur.lastrowid
                 c.commit()
-                 send_brevo_email(
-                    email,
-                    "Welcome to LibraryVerse!",
-                    f"""
-                    <h2>Welcome to LibraryVerse, {name}!</h2>
-                    <p>Your student account has been created successfully.</p>
-                    <p><b>Student ID:</b> {code}</p>
-                    <p>You can now sign in and explore your library.</p>
-                    <p>Happy reading!<br>LibraryVerse Team</p>
-                    """
-                )
-
+                 
 
                 session.clear()
                 session.update(
