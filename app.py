@@ -342,7 +342,7 @@ def student_register():
                     cur=c.execute("INSERT INTO students(name,email,phone,student_code,password_hash) VALUES(?,?,?,?,?)",
                                   (name,email,phone,code,generate_password_hash(pw))); sid=cur.lastrowid
                 c.commit()
-            send_brevo_email(
+                send_brevo_email(
                     email,
                     "Welcome to LibraryVerse!",
                     f"""
