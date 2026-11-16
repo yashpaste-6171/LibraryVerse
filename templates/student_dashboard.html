@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block heading %}My reading space{% endblock %}
+{% block content %}
+<section class="student-hero">
+  <div><span class="kicker">YOUR PERSONAL LIBRARY</span>
+    <h2>Hello, {{ (student.name or 'Reader').split(' ')[0] }} <span>✦</span></h2>
+    <p>Your next great read is closer than you think. Keep exploring.</p>
+    <a class="btn light" href="{{ url_for('student_catalog') }}">Explore the collection →</a>
+  </div>
+  <div class="hero-orbit"><div class="orbit-book">✧</div><span>READ<br>GROW<br>REPEAT</span></div>
+</section>
+
+<div class="metric-grid student-metrics">
+  <div class="metric"><div class="metric-top"><span>Currently borrowed</span><b>▤</b></div><strong>{{ active|length }}</strong><small>Books in your care</small></div>
+  <div class="metric"><div class="metric-top"><span>Books returned</span><b>✓</b></div><strong>{{ returned }}</strong><small>Completed reads</small></div>
+  <div class="metric"><div class="metric-top"><span>Reservations</span><b>☆</b></div><strong>{{ reservations|length }}</strong><small>Recent requests</small></div>
+  <div class="metric"><div class="metric-top"><span>Overdue books</span><b>!</b></div><strong>{{ overdue }}</strong><small>Need your attention</small></div>
+  <div class="metric"><div class="metric-top"><span>Member ID</span><b>♙</b></div><strong class="id-value">{{ student.student_code or '—' }}</strong><small>Library member</small></div>
+</div>
+
+<div class="two-col dashboard-columns">
+  <section class="panel">
+    <div class="panel-head"><div><span class="kicker">YOUR BOOKSHELF</span><h3>Currently borrowed</h3></div><a href="{{ url_for('student_catalog') }}">Find another book →</a></div>
+    {% for l in active %}
+      <article class="loan-card loan-card-expanded">
+        <img src="{{ url_for('static', filename='uploads/'+l.cover_image) }}" alt="Cover of {{ l.title }}" onerror="this.style.display='none'">
+        <div class="loan-details">
+          <b>{{ l.title }}</b><small>{{ l.author }}</small>
+          <span class="{{ 'late' if l.due_date < today else 'due' }}">Due {{ l.due_date }}{% if l.due_date < today %} · Overdue{% endif %}</span>
+          <small>Issued {{ l.issue_date }}</small>
+          <form method="post" action="{{ url_for('student_return', loan_id=l.id) }}" onsubmit="return confirm('Return {{ l.title|e }} to the library?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn-return" type="submit">↩ Return book</button>
+          </form>
+        </div>
+      </article>
+    {% else %}
+      <div class="empty-state">Your borrowed shelf is empty. <a href="{{ url_for('student_catalog') }}">Find a book to read →</a></div>
+    {% endfor %}
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><div><span class="kicker">YOUR REQUESTS</span><h3>Reservations</h3></div></div>
+    {% for r in reservations %}
+      <div class="request-row"><b>{{ r.title }}</b><span class="tag">{{ r.status }}</span></div>
+    {% else %}
+      <div class="empty-state">No reservations yet. Your next favorite may be waiting.</div>
+    {% endfor %}
+    <a class="soft-link" href="{{ url_for('student_catalog') }}">Browse books →</a>
+    <div class="chart-wrap compact-chart"><span class="kicker">YOUR READING ACTIVITY</span><h3>Recent borrowing</h3><canvas id="studentActivityChart" height="155"></canvas></div>
+  </section>
+</div>
+
+<section class="panel history">
+  <div class="panel-head"><div><span class="kicker">READING HISTORY</span><h3>Recent activity</h3></div></div>
+  <div class="table-scroll"><table><thead><tr><th>BOOK</th><th>ISSUED</th><th>RETURNED</th><th>FINE</th><th>STATUS</th></tr></thead><tbody>
+  {% for l in history %}
+    <tr><td><b>{{ l.title }}</b></td><td>{{ l.issue_date }}</td><td>{{ l.return_date or '—' }}</td><td>₹{{ l.fine|money }}</td><td><span class="tag">{{ 'Returned' if l.return_date else 'On loan' }}</span></td></tr>
+  {% else %}<tr><td colspan="5">Your reading history will appear here.</td></tr>{% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const studentLabels={{ monthly|map(attribute='month')|list|tojson }};
+const studentValues={{ monthly|map(attribute='total')|list|tojson }};
+if (window.Chart && document.getElementById('studentActivityChart')) {
+ new Chart(document.getElementById('studentActivityChart'), {
+  type:'bar', data:{labels:studentLabels,datasets:[{label:'Books borrowed',data:studentValues,backgroundColor:'#7969e8',borderRadius:7,maxBarThickness:28}]},
+  options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}
+ });
+}
+</script>
+{% endblock %}

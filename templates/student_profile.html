@@ -1,0 +1,25 @@
+{% extends "base.html" %}{% block heading %}My profile & library ID{% endblock %}
+{% block content %}
+<div class="two-col profile-columns">
+  <section class="panel narrow"><span class="kicker">MEMBER DETAILS</span><h3>Your profile</h3><p class="muted">Keep your contact details and account secure.</p>
+    <form class="form-stack" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Full name</label><input name="name" value="{{ student.name }}" required>
+      <label>Student ID</label><input value="{{ student.student_code }}" disabled>
+      <label>Email</label><input value="{{ student.email or '' }}" disabled>
+      <label>Phone</label><input name="phone" value="{{ student.phone or '' }}">
+      <label>New password (optional, 10+ characters)</label><input type="password" name="new_password" minlength="10" placeholder="Leave blank to keep current password">
+      <button class="btn primary">Save profile</button>
+    </form>
+  </section>
+  <section class="panel id-card-panel">
+    <span class="kicker">DIGITAL LIBRARY MEMBERSHIP</span>
+    <div class="digital-id">
+      <div class="id-card-brand"><span class="logo">L</span><b>LIBRARYVERSE <small>STUDENT LIBRARY CARD</small></b></div>
+      <div class="id-card-body"><div><span class="id-overline">LIBRARY MEMBER</span><h2>{{ student.name }}</h2><p>{{ student.student_code }}</p><small>{{ student.email or 'Member' }}</small></div><img src="{{ qr_data }}" alt="Student ID QR code"></div>
+      <div class="id-card-footer">DISCOVER · READ · RETURN · REPEAT</div>
+    </div>
+    <p class="muted small">Show this QR code to library staff for student lookup. It encodes your library member ID only.</p>
+  </section>
+</div>
+{% endblock %}

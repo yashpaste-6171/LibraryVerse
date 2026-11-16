@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block heading %}Library command center{% endblock %}
+{% block content %}
+<div class="welcome"><div><span class="kicker">YOUR LIBRARY AT A GLANCE</span><h2>Good day, {{ session.username }} <span>✦</span></h2><p>Live circulation, catalogue and member activity.</p></div><a class="btn primary" href="{{ url_for('loans') }}">＋ Issue a book</a></div>
+<div class="metric-grid admin-metrics">
+  {% for label,value,sub,ico in [('Book titles',stats.titles,stats.copies|string+' total copies','▤'),('Available copies',stats.available,'Ready for readers','✓'),('Student members',stats.students,'Registered members','♙'),('Books on loan',stats.issued,stats.overdue|string+' overdue','⇄'),('Waiting reservations',stats.reservations,'In the queue','☆')] %}
+  <div class="metric"><div class="metric-top"><span>{{ label }}</span><b>{{ ico }}</b></div><strong>{{ value }}</strong><small>{{ sub }}</small></div>
+  {% endfor %}
+</div>
+<div class="two-col analytics-columns">
+  <section class="panel"><div class="panel-head"><div><span class="kicker">LIBRARY PERFORMANCE</span><h3>Monthly circulation</h3></div></div><canvas id="circulationChart" height="125"></canvas></section>
+  <section class="panel"><div class="panel-head"><div><span class="kicker">COLLECTION MIX</span><h3>Books by category</h3></div></div><canvas id="categoryChart" height="165"></canvas></section>
+</div>
+<div class="two-col">
+  <section class="panel"><div class="panel-head"><div><span class="kicker">CIRCULATION</span><h3>Recent activity</h3></div><a href="{{ url_for('loans') }}">View all →</a></div>
+    <div class="table-scroll"><table><thead><tr><th>BOOK / READER</th><th>DUE DATE</th><th>STATUS</th></tr></thead><tbody>
+    {% for l in recent %}<tr><td><b>{{ l.title }}</b><small>{{ l.student_name }}</small></td><td>{{ l.due_date }}</td><td><span class="tag">{{ 'Returned' if l.return_date else ('Overdue' if l.due_date<today else 'On loan') }}</span></td></tr>
+    {% else %}<tr><td colspan="3">No activity yet. Issue your first book.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+  <section class="panel spotlight"><span class="kicker">QUICK ACTIONS</span><h3>Keep things moving.</h3>
+    <a href="{{ url_for('books') }}">＋ Add a new book <span>→</span></a>
+    <a href="{{ url_for('students') }}">＋ Register a student <span>→</span></a>
+    <a href="{{ url_for('reservations') }}">☆ Review reservations <span>→</span></a>
+    <a href="{{ url_for('reports') }}">↗ Explore reports <span>→</span></a>
+    {% if session.get('role')=='admin' %}<a href="{{ url_for('librarians') }}">♧ Manage staff <span>→</span></a>{% endif %}
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const monthLabels={{ monthly|map(attribute='month')|list|tojson }};
+const monthValues={{ monthly|map(attribute='total')|list|tojson }};
+const categoryLabels={{ categories|map(attribute='label')|list|tojson }};
+const categoryValues={{ categories|map(attribute='total')|list|tojson }};
+if(window.Chart){
+ const c=document.getElementById('circulationChart');
+ if(c)new Chart(c,{type:'line',data:{labels:monthLabels,datasets:[{label:'Loans',data:monthValues,borderColor:'#6c5ce7',backgroundColor:'rgba(108,92,231,.13)',fill:true,tension:.35}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0}},x:{grid:{display:false}}}}});
+ const d=document.getElementById('categoryChart');
+ if(d)new Chart(d,{type:'doughnut',data:{labels:categoryLabels,datasets:[{data:categoryValues,backgroundColor:['#6c5ce7','#9a8cf0','#51458f','#b5aaf7','#4c8f83','#d7a35b'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+}
+</script>
+{% endblock %}
