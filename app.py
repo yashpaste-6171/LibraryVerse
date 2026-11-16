@@ -10,6 +10,7 @@ from PIL import Image
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from openpyxl import Workbook
+import requests
 
 ROOT = os.path.abspath(os.path.dirname(__file__))
 
@@ -21,6 +22,45 @@ DB = os.path.join(DATA_DIR, "library.db")
 UPLOAD = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD, exist_ok=True)
 app=Flask(__name__)
+def send_brevo_email(to_email, subject, html_content):
+    api_key = os.environ.get("BREVO_API_KEY")
+    sender_email = os.environ.get("MAIL_FROM")
+    sender_name = os.environ.get("MAIL_FROM_NAME", "LibraryVerse")
+
+    if not api_key or not sender_email or not to_email:
+        app.logger.warning("Brevo email settings or recipient missing.")
+        return False
+
+    url = "https://api.brevo.com/v3/smtp/email"
+
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json"
+    }
+
+    payload = {
+        "sender": {
+            "name": sender_name,
+            "email": sender_email
+        },
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "htmlContent": html_content
+    }
+
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=15
+        )
+        response.raise_for_status()
+        return True
+    except Exception:
+        app.logger.exception("Brevo email sending failed.")
+        return False
 def load_secret_key():
     configured=os.environ.get("SECRET_KEY")
     if configured: return configured
