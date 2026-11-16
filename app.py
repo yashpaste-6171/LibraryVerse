@@ -11,10 +11,15 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from openpyxl import Workbook
 
-ROOT=os.path.abspath(os.path.dirname(__file__))
-DB=os.path.join(ROOT,"library.db")
-UPLOAD=os.path.join(ROOT,"static","uploads")
-os.makedirs(UPLOAD,exist_ok=True)
+ROOT = os.path.abspath(os.path.dirname(__file__))
+
+DATA_DIR = os.environ.get("LIBRARY_DATA_DIR", ROOT)
+os.makedirs(DATA_DIR, exist_ok=True)
+
+DB = os.path.join(DATA_DIR, "library.db")
+
+UPLOAD = os.path.join(DATA_DIR, "uploads")
+os.makedirs(UPLOAD, exist_ok=True)
 app=Flask(__name__)
 def load_secret_key():
     configured=os.environ.get("SECRET_KEY")
