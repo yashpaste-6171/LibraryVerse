@@ -341,8 +341,32 @@ def student_register():
                 else:
                     cur=c.execute("INSERT INTO students(name,email,phone,student_code,password_hash) VALUES(?,?,?,?,?)",
                                   (name,email,phone,code,generate_password_hash(pw))); sid=cur.lastrowid
-                c.commit(); session.clear(); session.update(student_id=sid,student_name=name,student_code=code,role="student")
-                return redirect(url_for("student_dashboard"))
+                c.commit()
+
+send_brevo_email(
+    email,
+    "Welcome to LibraryVerse!",
+    f"""
+    <html>
+    <body style="font-family:Arial,sans-serif;">
+        <h2>Welcome to LibraryVerse, {name}!</h2>
+        <p>Your student account has been created successfully.</p>
+        <p><b>Student ID:</b> {code}</p>
+        <p>You can now sign in and explore your library.</p>
+        <p>Happy reading!<br>LibraryVerse Team</p>
+    </body>
+    </html>
+    """
+)
+
+session.clear()
+session.update(
+    student_id=sid,
+    student_name=name,
+    student_code=code,
+    role="student"
+)
+return redirect(url_for("student_dashboard"))    
             except (sqlite3.IntegrityError,ValueError) as e:
                 flash(str(e) or "Email or student ID is already registered.","danger")
     return render_template("student_register.html")
