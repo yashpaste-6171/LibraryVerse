@@ -343,21 +343,7 @@ def student_register():
                                   (name,email,phone,code,generate_password_hash(pw))); sid=cur.lastrowid
                 c.commit()
 
-send_brevo_email(
-    email,
-    "Welcome to LibraryVerse!",
-    f"""
-    <html>
-    <body style="font-family:Arial,sans-serif;">
-        <h2>Welcome to LibraryVerse, {name}!</h2>
-        <p>Your student account has been created successfully.</p>
-        <p><b>Student ID:</b> {code}</p>
-        <p>You can now sign in and explore your library.</p>
-        <p>Happy reading!<br>LibraryVerse Team</p>
-    </body>
-    </html>
-    """
-)
+
 
 session.clear()
 session.update(
