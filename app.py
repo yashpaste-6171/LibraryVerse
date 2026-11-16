@@ -345,14 +345,14 @@ def student_register():
 
 
 
-session.clear()
-session.update(
-    student_id=sid,
-    student_name=name,
-    student_code=code,
-    role="student"
-)
-return redirect(url_for("student_dashboard"))    
+                session.clear()
+                session.update(
+                    student_id=sid,
+                    student_name=name,
+                    student_code=code,
+                    role="student"
+                )
+                return redirect(url_for("student_dashboard"))    
             except (sqlite3.IntegrityError,ValueError) as e:
                 flash(str(e) or "Email or student ID is already registered.","danger")
     return render_template("student_register.html")
