@@ -1,1 +1,185 @@
-{% extends "base.html" %}{% block heading %}Barcode & QR scanner{% endblock %}{% block content %}<div class="panel narrow"><span class="kicker">QUICK LOOKUP</span><h3>Scan ISBN or student ID</h3><p>Allow camera access or enter a code manually. Scanner performs a lookup only.</p><div id="reader"></div><div id="result" class="scan-result">Waiting for a scan…</div><form class="searchbar" onsubmit="event.preventDefault();lookup(document.getElementById('code').value)"><input id="code" placeholder="Enter ISBN / student ID"><button class="btn primary">Lookup</button></form></div>{% endblock %}{% block scripts %}<script>async function lookup(code){let box=document.getElementById('result');try{let r=await fetch('/scan/lookup?code='+encodeURIComponent(code));let d=await r.json();if(!r.ok)throw Error(d.error);box.textContent=d.type+': '+d.name+(d.available!==undefined?' · '+d.available+' available':' · '+d.student_id)}catch(e){box.textContent=e.message}}if(window.Html5Qrcode){let scanner=new Html5Qrcode('reader');scanner.start({facingMode:'environment'},{fps:10,qrbox:220},t=>{lookup(t);scanner.pause(true)},()=>{}).catch(()=>document.getElementById('result').textContent='Camera unavailable. Use manual lookup.');}</script>{% endblock %}
+
+{% extends "base.html" %}
+
+{% block heading %}Barcode & QR Scanner{% endblock %}
+
+{% block content %}
+
+<div class="panel narrow">
+    <span class="kicker">QUICK LOOKUP</span>
+
+    <h3>Scan Student ID or Book ISBN</h3>
+
+    <p>
+        Scan a LibraryVerse student QR code or book barcode
+        to view the complete record.
+    </p>
+
+    <div id="reader"></div>
+
+    <div id="result" class="scan-result">
+        Waiting for a scan...
+    </div>
+
+    <form class="searchbar"
+          onsubmit="event.preventDefault(); lookup(document.getElementById('code').value)">
+        <input id="code" placeholder="Enter ISBN / student ID" required>
+        <button class="btn primary">Lookup</button>
+    </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+
+<script>
+function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, function(ch) {
+        return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        }[ch];
+    });
+}
+
+function showStudent(data) {
+    const s = data.student;
+
+    let html = `
+        <div class="panel" style="margin-top:20px;">
+            <span class="kicker">STUDENT PROFILE</span>
+            <h2>${escapeHTML(s.name)}</h2>
+
+            <p><b>Student ID:</b> ${escapeHTML(s.student_code)}</p>
+            <p><b>Email:</b> ${escapeHTML(s.email || "Not provided")}</p>
+            <p><b>Phone:</b> ${escapeHTML(s.phone || "Not provided")}</p>
+            <p><b>Account Status:</b> ${Number(s.active) === 1 ? "Active" : "Inactive"}</p>
+            <p><b>Registration Date:</b> ${escapeHTML(s.created_at || "Not available")}</p>
+
+            <hr>
+            <h3>Currently Borrowed Books</h3>
+    `;
+
+    if (data.active_loans.length) {
+        html += "<ul>";
+
+        data.active_loans.forEach(book => {
+            html += `
+                <li>
+                    <b>${escapeHTML(book.title)}</b><br>
+                    Author: ${escapeHTML(book.author)}<br>
+                    Issue Date: ${escapeHTML(book.issue_date)}<br>
+                    Due Date: ${escapeHTML(book.due_date)}
+                </li>
+            `;
+        });
+
+        html += "</ul>";
+    } else {
+        html += "<p>No currently borrowed books.</p>";
+    }
+
+    html += "<hr><h3>Previously Returned Books</h3>";
+
+    if (data.returned_loans.length) {
+        html += "<ul>";
+
+        data.returned_loans.forEach(book => {
+            html += `
+                <li>
+                    <b>${escapeHTML(book.title)}</b><br>
+                    Issue Date: ${escapeHTML(book.issue_date)}<br>
+                    Return Date: ${escapeHTML(book.return_date)}<br>
+                    Fine: ₹${escapeHTML(book.fine)}
+                </li>
+            `;
+        });
+
+        html += "</ul>";
+    } else {
+        html += "<p>No returned book records.</p>";
+    }
+
+    html += "<hr><h3>Reservations</h3>";
+
+    if (data.reservations.length) {
+        html += "<ul>";
+
+        data.reservations.forEach(item => {
+            html += `
+                <li>
+                    <b>${escapeHTML(item.title)}</b><br>
+                    Reserved: ${escapeHTML(item.reserved_at)}<br>
+                    Status: ${escapeHTML(item.status)}
+                </li>
+            `;
+        });
+
+        html += "</ul>";
+    } else {
+        html += "<p>No reservations.</p>";
+    }
+
+    html += "</div>";
+
+    document.getElementById("result").innerHTML = html;
+}
+
+async function lookup(code) {
+    const box = document.getElementById("result");
+    code = code.trim();
+
+    if (!code) {
+        box.textContent = "Please enter a student ID or ISBN.";
+        return;
+    }
+
+    box.textContent = "Searching LibraryVerse records...";
+
+    try {
+        const response = await fetch(
+            "/scan/lookup?code=" + encodeURIComponent(code)
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "No matching record found.");
+        }
+
+        if (data.type === "Student") {
+            showStudent(data);
+        } else if (data.type === "Book") {
+            box.textContent =
+                "Book: " + data.name +
+                " | Available copies: " + data.available;
+        }
+
+    } catch (error) {
+        box.textContent = error.message;
+    }
+}
+
+if (window.Html5Qrcode) {
+    let scanner = new Html5Qrcode("reader");
+
+    scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 220 },
+        function(decodedText) {
+            scanner.pause(true);
+            document.getElementById("code").value = decodedText;
+            lookup(decodedText);
+        },
+        function() {}
+    ).catch(function() {
+        document.getElementById("result").textContent =
+            "Camera unavailable. Use manual lookup.";
+    });
+}
+</script>
+
+{% endblock %}
