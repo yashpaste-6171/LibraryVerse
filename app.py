@@ -422,31 +422,70 @@ def student_catalog():
 @app.route("/student/borrow/<int:book_id>",methods=["POST"])
 @student_required
 def student_borrow(book_id):
-    """Let a signed-in student borrow an available copy from the catalogue."""
     c = db()
     try:
         c.execute("BEGIN IMMEDIATE")
-        book = c.execute("SELECT * FROM books WHERE id=?", (book_id,)).fetchone()
+        book = c.execute(
+            "SELECT * FROM books WHERE id=?", (book_id,)
+        ).fetchone()
+
+        student = c.execute(
+            "SELECT name,email FROM students WHERE id=?",
+            (session["student_id"],)
+        ).fetchone()
+
         if not book:
             raise ValueError("Book not found.")
+        if not student:
+            raise ValueError("Student account not found.")
         if book["available_copies"] < 1:
             raise ValueError("This book is no longer available. Please reserve it instead.")
+
         already = c.execute(
             "SELECT 1 FROM loans WHERE student_id=? AND book_id=? AND return_date IS NULL",
             (session["student_id"], book_id)
         ).fetchone()
+
         if already:
             raise ValueError("You already have this book on loan.")
+
         issue = date.today()
         due = issue + timedelta(days=14)
+
         c.execute(
             "INSERT INTO loans(book_id,student_id,issued_by,issue_date,due_date) VALUES(?,?,?,?,?)",
             (book_id, session["student_id"], None, issue.isoformat(), due.isoformat())
         )
-        c.execute("UPDATE books SET available_copies=available_copies-1 WHERE id=?", (book_id,))
+        c.execute(
+            "UPDATE books SET available_copies=available_copies-1 WHERE id=?",
+            (book_id,)
+        )
         c.commit()
-        flash(f"'{book['title']}' has been borrowed. Please return it by {due.isoformat()}.", "success")
+
+        if student["email"]:
+            try:
+                send_brevo_email(
+                    student["email"],
+                    "LibraryVerse - Book Borrowing Confirmation",
+                    f"""
+                    <h2>Book borrowed successfully!</h2>
+                    <p>Hello {student['name']},</p>
+                    <p>You have borrowed <b>{book['title']}</b>.</p>
+                    <p>Issue date: <b>{issue.strftime('%d-%m-%Y')}</b></p>
+                    <p>Due date: <b>{due.strftime('%d-%m-%Y')}</b></p>
+                    <h3>Please return your book by {due.strftime('%d-%m-%Y')}.</h3>
+                    <p>Happy reading!<br>LibraryVerse Team</p>
+                    """
+                )
+                flash("Book borrowed! Confirmation email sent.", "success")
+            except Exception:
+                app.logger.exception("Borrow confirmation email failed")
+                flash("Book borrowed, but email could not be sent.", "warning")
+        else:
+            flash("Book borrowed, but no email is registered.", "warning")
+
         return redirect(url_for("student_dashboard"))
+
     except ValueError as e:
         c.rollback()
         flash(str(e), "warning")
