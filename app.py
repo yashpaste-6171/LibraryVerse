@@ -718,15 +718,77 @@ def pdf():
 @app.route("/scan")
 @librarian_required
 def scan(): return render_template("scan.html")
+
 @app.route("/scan/lookup")
 @librarian_required
 def scan_lookup():
-    code=request.args.get("code","").strip(); c=db()
-    b=c.execute("SELECT * FROM books WHERE isbn=?",(code,)).fetchone()
-    s=c.execute("SELECT * FROM students WHERE student_code=?",(code,)).fetchone()
-    if b: return jsonify(type="Book",name=b["title"],available=b["available_copies"])
-    if s: return jsonify(type="Student",name=s["name"],student_id=s["student_code"])
-    return jsonify(error="No matching ISBN or student ID."),404
+    code = request.args.get("code", "").strip()
+    c = db()
+
+    # Extract student ID from LibraryVerse QR code
+    if code.startswith("LIBRARYVERSE|STUDENT|"):
+        code = code.split("|", 2)[2].strip()
+
+    # Check book ISBN
+    book = c.execute(
+        "SELECT * FROM books WHERE isbn=?",
+        (code,)
+    ).fetchone()
+
+    if book:
+        return jsonify(
+            type="Book",
+            name=book["title"],
+            available=book["available_copies"]
+        )
+
+    # Find student
+    student = c.execute("""
+        SELECT id, name, email, phone, student_code, active, created_at
+        FROM students
+        WHERE student_code=?
+    """, (code,)).fetchone()
+
+    if not student:
+        return jsonify(error="No matching ISBN or student ID."), 404
+
+    sid = student["id"]
+
+    # Currently borrowed books
+    active_loans = c.execute("""
+        SELECT b.title, b.author, l.issue_date, l.due_date
+        FROM loans l
+        JOIN books b ON b.id = l.book_id
+        WHERE l.student_id = ? AND l.return_date IS NULL
+        ORDER BY l.due_date
+    """, (sid,)).fetchall()
+
+    # Previously returned books
+    returned_loans = c.execute("""
+        SELECT b.title, l.issue_date, l.return_date, l.fine
+        FROM loans l
+        JOIN books b ON b.id = l.book_id
+        WHERE l.student_id = ? AND l.return_date IS NOT NULL
+        ORDER BY l.return_date DESC
+        LIMIT 10
+    """, (sid,)).fetchall()
+
+    # Student reservations
+    reservations = c.execute("""
+        SELECT b.title, r.reserved_at, r.status
+        FROM reservations r
+        JOIN books b ON b.id = r.book_id
+        WHERE r.student_id = ?
+        ORDER BY r.id DESC
+    """, (sid,)).fetchall()
+
+    return jsonify(
+        type="Student",
+        student=dict(student),
+        active_loans=[dict(row) for row in active_loans],
+        returned_loans=[dict(row) for row in returned_loans],
+        reservations=[dict(row) for row in reservations]
+    )
 
 @app.route("/change-password",methods=["GET","POST"])
 @librarian_required
